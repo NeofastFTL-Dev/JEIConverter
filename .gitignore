@@ -1,0 +1,25 @@
+# ---- .NET ----
+bin/
+obj/
+publish/
+*.user
+*.suo
+*.userosscache
+.vs/
+
+# ---- Build output ----
+dist/
+*.exe
+*.dll
+*.pdb
+*.zip
+
+# ---- Local logs and generated data ----
+*.log
+recipes.json
+
+# ---- Editor / OS junk ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
