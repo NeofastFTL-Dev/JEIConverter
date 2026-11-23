@@ -4,7 +4,7 @@ name: build
 # converts a small fixture dump and checks the JSON that comes out.
 on:
   push:
-    branches: [main]
+    branches: [main, linux]
   pull_request:
   workflow_dispatch:
 
@@ -38,6 +38,12 @@ jobs:
           grep -q '"oak_planks"' "$dump/out.json"
           grep -q '"Item": "oak_log"' "$dump/out.json"
           grep -q '"Count": 2' "$dump/out.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jeiconverter-linux-x86_64
+          path: JEIConverter/target/release/jeiconverter
+          if-no-files-found: error
 
   windows:
     name: Windows build + self-test
