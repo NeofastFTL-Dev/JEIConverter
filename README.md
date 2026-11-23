@@ -5,7 +5,8 @@ Converts a **JEIExporter** dump (Minecraft 1.12.2) into the `recipes.json` file 
 missing half of that app: the tree viewer knows how to draw a recipe graph, this tool builds one
 from what JEI already knows.
 
-It is a single-file console program with no dependencies beyond the .NET base class library.
+It is a single-file Rust console program: `serde_json` reads the dumps and `regex` cleans the
+names.
 
 ## How it works
 
@@ -52,7 +53,7 @@ to `[a-z0-9_]`. Duplicate ingredients inside one recipe are merged and their cou
 From the repository root:
 
 ```bash
-dotnet run --project JEIConverter/JEIConverter -- "<dump folder>" "<output recipes.json>"
+cargo run --release --manifest-path JEIConverter/Cargo.toml -- "<dump folder>" "<output recipes.json>"
 ```
 
 Both arguments are optional:
@@ -63,7 +64,7 @@ Both arguments are optional:
 Example:
 
 ```bash
-dotnet run --project JEIConverter/JEIConverter -- ~/Downloads/exports ./recipes.json
+cargo run --release --manifest-path JEIConverter/Cargo.toml -- ~/Downloads/exports ./recipes.json
 ```
 
 Every processed file is printed with the number of recipes it contributed, and the run ends with the
@@ -88,44 +89,22 @@ the name map.
 * After converting, check the output by hand. Recipes that matter to you are worth adding manually;
   the format is small enough to edit.
 
-## Building on this machine
-
-The project targets plain `net8.0` (no Windows-specific APIs), so it builds and runs natively on
-Linux with the SDK already installed in `~/.dotnet`.
+## Building
 
 ```bash
-# from the repository root
-dotnet build JEIConverter/JEIConverter.csproj -c Release
-dotnet run --project JEIConverter/JEIConverter -- "<dump folder>" "<output recipes.json>"
+cd JEIConverter
+cargo build --release        # → JEIConverter/target/release/jeiconverter
+cargo run --release -- "<dump folder>" "<output recipes.json>"
 ```
 
-`~/.dotnet/dotnet --list-sdks` on this machine reports **8.0.428** and **10.0.404**.
+`--selftest` is what CI runs: it writes a small dump (name map, a shaped crafting file, a furnace
+file and a lower-priority duplicate) to a temp folder, converts it and checks the result — item
+names from the name map, merged ingredient counts, "first source wins", skipped empty recipes and
+the exact JSON shape MCRPV reads. It exits non-zero if a check fails.
 
-### Windows executable
-
-The repository root carries the script for the whole sequence:
-
-```bash
-./build-wine.sh              # -> JEIConverter/dist/wine-x64/JEIConverter.exe
-./build-wine.sh --dry-run    # print the three commands instead
-```
-
-Run the result with `./run-wine.sh "<dump folder>" "<output recipes.json>"`, or directly with
-`wine JEIConverter/dist/wine-x64/JEIConverter.exe …`.
-
-By hand, from `JEIConverter/JEIConverter` (the folder with the `.csproj`):
-
-```bash
-WINEPREFIX=~/.wine-dotnet wine 'C:\dotnet\dotnet.exe' publish JEIConverter.csproj \
-  -c Release -r win-x64 --self-contained true --no-restore \
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-  -p:DebugType=none -o dist/wine-x64
-```
-
-(restore first with `~/.dotnet/dotnet restore JEIConverter.csproj` if the packages are not cached —
-the Wine-side NuGet cannot complete HTTPS requests here). The result is
-`dist/wine-x64/JEIConverter.exe`, about 68 MB self-contained. It is a console program: run it from
-`cmd.exe` or Windows Terminal, not by double-clicking, so you can see the prompts and summary.
+On Windows the same `cargo build --release` produces `JEIConverter\target\release\jeiconverter.exe`;
+it is a console program, so run it from `cmd.exe` or Windows Terminal rather than double-clicking it,
+otherwise the prompts and the summary vanish with the window.
 
 ## Screenshots
 
@@ -159,7 +138,8 @@ output file format are English.)
 
 ## Credits
 
-* JSON and regex handling: **System.Text.Json** and **System.Text.RegularExpressions** from .NET (MIT).
+* JSON and regex handling: [serde_json](https://github.com/serde-rs/json) (MIT/Apache-2.0) and
+  [regex](https://github.com/rust-lang/regex) (MIT/Apache-2.0).
 * Dumps are produced by **JEIExporter** for **Just Enough Items** (JEI) on Minecraft 1.12.2; recipe
   data itself belongs to Project Ozone 3 and the individual mod authors.
 * Output format designed for MCRPV.

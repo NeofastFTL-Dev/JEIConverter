@@ -1,9 +1,7 @@
 name: build
 
-# build-wine.sh needs Wine plus a Windows .NET SDK inside the prefix, which a Linux
-# runner does not have. The publish it produces (Release / win-x64 / self-contained /
-# single file) is reproducible on Linux with EnableWindowsTargeting, so CI builds
-# that and checks the result really is a Windows PE - a compile, not an assumption.
+# The converter is Rust now, so CI compiles it on both targets and runs its self-test, which
+# converts a small fixture dump and checks the JSON that comes out.
 on:
   push:
     branches: [main]
@@ -14,36 +12,50 @@ permissions:
   contents: read
 
 jobs:
-  windows-x64:
-    name: Publish win-x64
+  linux:
+    name: Linux build + self-test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: JEIConverter
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
+      - run: cargo build --release --locked
+      - run: ./target/release/jeiconverter --selftest
 
-      - name: dotnet publish (Release, win-x64, self-contained, single file)
+      - name: Convert a fixture dump end to end
         run: |
           set -euo pipefail
-          dotnet publish JEIConverter/JEIConverter.csproj \
-            -c Release -r win-x64 --self-contained true \
-            -p:PublishSingleFile=true -p:EnableWindowsTargeting=true \
-            -o out
+          dump=$(mktemp -d)
+          mkdir -p "$dump/recipes"
+          printf '{"minecraft:oak_planks":"Oak Planks","minecraft:oak_log":"Oak Log"}' > "$dump/nameMap.json"
+          printf '[{"output":{"item":"minecraft:oak_planks"},"inputs":[{"item":"minecraft:oak_log","count":2}]}]' \
+            > "$dump/recipes/crafting_shapeless.json"
+          ./target/release/jeiconverter "$dump" "$dump/out.json"
+          test -s "$dump/out.json"
+          grep -q '"oak_planks"' "$dump/out.json"
+          grep -q '"Item": "oak_log"' "$dump/out.json"
+          grep -q '"Count": 2' "$dump/out.json"
 
-      - name: Check the published exe
+  windows:
+    name: Windows build + self-test
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: JEIConverter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: cargo build --release --locked
+      - run: target/release/jeiconverter.exe --selftest
+
+      - name: Check the exe
+        shell: pwsh
+        working-directory: JEIConverter
         run: |
-          set -euo pipefail
-          exe=out/JEIConverter.exe
-          test -f "$exe" || { echo "JEIConverter.exe was not produced"; exit 1; }
-          ls -lh "$exe"
-          ftype=$(file -b "$exe")
-          echo "file type: $ftype"
-          case "$ftype" in
-            *PE32+*) ;;
-            *) echo "$exe is not a PE32+ Windows binary"; exit 1 ;;
-          esac
-          size=$(stat -c %s "$exe")
-          test "$size" -gt 1000000 \
-            || { echo "$exe is only $size bytes - the self-contained runtime is missing"; exit 1; }
+          $exe = "target/release/jeiconverter.exe"
+          if (-not (Test-Path $exe)) { throw "jeiconverter.exe was not produced" }
+          Write-Host "size: $((Get-Item $exe).Length) bytes"

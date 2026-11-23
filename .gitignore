@@ -1,3 +1,6 @@
+# ---- Rust ----
+JEIConverter/target/
+
 # ---- .NET ----
 bin/
 obj/
