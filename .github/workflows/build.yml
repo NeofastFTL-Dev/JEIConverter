@@ -5,6 +5,7 @@ name: build
 on:
   push:
     branches: [main, linux, macos]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -66,6 +67,12 @@ jobs:
           if (-not (Test-Path $exe)) { throw "jeiconverter.exe was not produced" }
           Write-Host "size: $((Get-Item $exe).Length) bytes"
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jeiconverter-windows
+          path: JEIConverter/target/release/jeiconverter.exe
+          if-no-files-found: error
+
   macos:
     name: macOS build + self-test
     runs-on: macos-latest
@@ -97,3 +104,50 @@ jobs:
           name: jeiconverter-macos
           path: JEIConverter/target/release/jeiconverter
           if-no-files-found: error
+
+  release:
+    name: Release
+    needs: [linux, windows, macos]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: jeiconverter-linux-x86_64
+          path: dist/linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: jeiconverter-macos
+          path: dist/macos
+      - uses: actions/download-artifact@v4
+        with:
+          name: jeiconverter-windows
+          path: dist/windows
+
+      - name: Name the binaries after the tag
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          test -s dist/linux/jeiconverter
+          test -s dist/macos/jeiconverter
+          test -s dist/windows/jeiconverter.exe
+          mkdir -p out
+          cp dist/linux/jeiconverter "out/jeiconverter-${version}-linux-x86_64"
+          cp dist/macos/jeiconverter "out/jeiconverter-${version}-macos"
+          cp dist/windows/jeiconverter.exe "out/jeiconverter-${version}-windows-x86_64.exe"
+          chmod 755 out/jeiconverter-*
+          ls -l out
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          name: JEIConverter ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            Converts a JEIExporter dump into the `recipes.json` read by
+            [MCRPV](https://github.com/NeofastFTL-Dev/MCRPV).
+
+            Linux x86_64, Windows x86_64 and macOS binaries are attached; each one is built and
+            self-tested by CI on its own platform for this tag.
