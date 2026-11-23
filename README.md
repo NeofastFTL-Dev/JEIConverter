@@ -1,8 +1,9 @@
 # JEIConverter
 
 Converts a **JEIExporter** dump (Minecraft 1.12.2) into the `recipes.json` file read by
-**PO3 Mythic Recipe Tree**. It is the missing half of that app: the tree
-viewer knows how to draw a recipe graph, this tool builds one from what JEI already knows.
+**[MCRPV](https://github.com/NeofastFTL-Dev/MCRPV)** (Minecraft Recipe Tree Viewer). It is the
+missing half of that app: the tree viewer knows how to draw a recipe graph, this tool builds one
+from what JEI already knows.
 
 It is a single-file console program with no dependencies beyond the .NET base class library.
 
@@ -161,7 +162,7 @@ output file format are English.)
 * JSON and regex handling: **System.Text.Json** and **System.Text.RegularExpressions** from .NET (MIT).
 * Dumps are produced by **JEIExporter** for **Just Enough Items** (JEI) on Minecraft 1.12.2; recipe
   data itself belongs to Project Ozone 3 and the individual mod authors.
-* Output format designed for PO3 Mythic Recipe Tree.
+* Output format designed for MCRPV.
 
 ## License
 
