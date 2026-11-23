@@ -4,7 +4,7 @@ name: build
 # converts a small fixture dump and checks the JSON that comes out.
 on:
   push:
-    branches: [main, linux]
+    branches: [main, linux, macos]
   pull_request:
   workflow_dispatch:
 
@@ -65,3 +65,35 @@ jobs:
           $exe = "target/release/jeiconverter.exe"
           if (-not (Test-Path $exe)) { throw "jeiconverter.exe was not produced" }
           Write-Host "size: $((Get-Item $exe).Length) bytes"
+
+  macos:
+    name: macOS build + self-test
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: JEIConverter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: JEIConverter
+
+      - run: cargo build --release --locked
+      - run: ./target/release/jeiconverter --selftest
+
+      - name: Check the binary
+        run: |
+          set -euo pipefail
+          ftype=$(file -b target/release/jeiconverter)
+          echo "$ftype"
+          case "$ftype" in
+            *Mach-O*) ;;
+            *) echo "not a Mach-O binary"; exit 1 ;;
+          esac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jeiconverter-macos
+          path: JEIConverter/target/release/jeiconverter
+          if-no-files-found: error
